@@ -1,8 +1,3 @@
-const express = require('express');
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-// Simulação de um banco de dados de pedidos
 const Aceito = 'Aceito';
 const Preparando = 'Preparando';
 const Transporte = 'Em Transporte';
@@ -19,42 +14,69 @@ const pedidos = {
   45798: Object.values(status)[2],
 };
 
-// Endpoint para obter o status de um pedido pelo ID
-app.get('/status/:pedidoId', (req, res) => {
-  // Extrai o ID do pedido da URL
-  const pedidoId = req.params.pedidoId;
+addEventListener('fetch', event => {
+  const { request } = event;
+  const url = new URL(request.url);
 
-  // Verifica se o pedido existe no banco de dados
-  if (pedidos[pedidoId]) {
-    // Retorna o status do pedido
-    res.json({ pedidoId, status: pedidos[pedidoId] });
+  if (url.pathname.startsWith('/status/')) {
+    const pedidoId = url.pathname.split('/').pop();
+    if (pedidos[pedidoId]) {
+      event.respondWith(
+        new Response(JSON.stringify({ pedidoId, status: pedidos[pedidoId] }), {
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+    } else {
+      event.respondWith(
+        new Response(JSON.stringify({ mensagem: 'Pedido não encontrado' }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+    }
+  } else if (url.pathname === '/atualizar-status' && request.method === 'POST') {
+    const pedidoId = url.searchParams.get('pedido');
+    const novoStatus = url.searchParams.get('status');
+
+    if (!pedidoId || !pedidos[pedidoId]) {
+      event.respondWith(
+        new Response(JSON.stringify({ erro: 'Pedido não encontrado' }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+    } else if (!novoStatus) {
+      event.respondWith(
+        new Response(JSON.stringify({ erro: 'Bad Request - Informe o novo Status' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+    } else if (!status[novoStatus]) {
+      event.respondWith(
+        new Response(JSON.stringify({ erro: 'Bad Request - Informe um Status Válido' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+    } else {
+      event.respondWith(
+        new Response(
+          JSON.stringify({
+            mensagem: `Atualização de status '${status[novoStatus]}' enviada com sucesso para o pedido '${pedidoId}'`,
+          }),
+          {
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+      );
+    }
   } else {
-    // Retorna uma mensagem de erro se o pedido não for encontrado
-    res.status(404).json({ mensagem: 'Pedido não encontrado' });
+    event.respondWith(
+      new Response('Not Found', {
+        status: 404,
+        headers: { 'Content-Type': 'text/plain' },
+      })
+    );
   }
-});
-
-// Endpoint para simular o envio de uma atualização de status para a squad de notificações
-app.post('/atualizar-status', (req, res) => {
-  // Extrai os dados da requisição
-  const pedidoId = req.query.pedido;
-  const novoStatus = req.query.status;
-
-  if (!pedidoId || !pedidos[pedidoId]) {
-    res.status(404).json({ erro: 'Pedido não encontrado' });
-  } else if (!novoStatus) {
-    res.status(400).json({ erro: 'Bad Request - Informe o novo Status' });
-  } else if (!status[novoStatus]) {
-    res.status(400).json({ erro: 'Bad Request - Informe um Status Válido' });
-  } else {
-    // Retorna uma resposta de sucesso
-    res.json({
-      mensagem: `Atualização de status '${status[novoStatus]}' enviada com sucesso para o pedido '${pedidoId}'`,
-    });
-  }
-});
-
-// Inicia o servidor na porta 3000
-app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
 });
